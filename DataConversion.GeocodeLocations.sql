@@ -8,41 +8,34 @@
 
 
 CREATE OR ALTER PROCEDURE DataConversion.GeocodeLocations   
-    @bLocationID int     
+    @bLocationID int    
+	,@UserName varchar(255)
 AS
 
 	declare @Address nvarchar(500)
-	declare @Header nvarchar(100)
+			,@Header nvarchar(100)
+			,@Latitude int
+			,@Longitude int
 
 	select @Address = 'street=' + Address1 + '&city=' + city + '&state=' + state + '&postcode=' + zipcode + '&country=US'
 	from bLocation
 	where bLocationID = @bLocationID
-
-	--set @Header = '	$header = @{' + '''' + 'Authorization' + '''' + ' = ' + '''' + '504FCAC9ECD58E4DA3FA4011F27A17EB' + '''' + '};'
+	
 	set @Header = '@{' + '''' + 'Authorization' + '''' + ' = ' + '''' + '504FCAC9ECD58E4DA3FA4011F27A17EB' + '''' + '}'
 	   	  
 
-	/* Build API call */
-   
+	/* Build API call */   
     DECLARE @url varchar(255) = CONCAT(
         'https://pcmiler.alk.com/APIs/REST/v1.0/Service.svc/locations',
 		'?',
         @Address
-    );
-
-   -- DECLARE @query varchar(255) = ').Coords | ConvertTo-Json'
+    );   
 	
     DECLARE @cmd varchar(512) = CONCAT(		
-       ' powershell -command "',
-		--' powershell ',
-		----@Header,
-		-- ' -command ',
-        --' (Invoke-RestMethod -Method GET -Headers ' + @Header + ' -Uri "',  
+       ' powershell -command "',		
 		' (Invoke-RestMethod -Method GET -Headers ' + @Header + ' -Uri ',        
 		'''',
-        @url,     
-		--'"',           
-		--').Coords '
+        @url,     		
 		'''',      		        
         ').Coords | ConvertTo-Json'        
 		,'"'          
@@ -54,13 +47,7 @@ AS
 
     /* Make the HTTP call using Powershell */
     INSERT @result
-    EXEC xp_cmdshell @cmd
-
-	--select * from @result
-
-	--SELECT STRING_AGG(CAST(output AS varchar(MAX)), CHAR(10))
- --       FROM @result
- --       WHERE output IS NOT NULL
+    EXEC xp_cmdshell @cmd	
 
     /* Process the resulting JSON and insert into import table */
     DECLARE @json varchar(MAX) = (
@@ -68,42 +55,12 @@ AS
         FROM @result
         WHERE output IS NOT NULL) 
     );
+				
 
-	--print @json
-	
-	--SELECT JSON_VALUE('{ "lat": "25", "lon": "30" }', '$.lon')
---	SELECT JSON_VALUE('{
---    "lat":  "36.869346",
---    "lon":  "-121.402060"
---}', '$.lon')
-
-	--select JSON_VALUE(@json, '$.lat')
-
-	--SELECT lat = JSON_VALUE(@json, '$.Lat')
-	--select lon = JSON_VALUE(@json, '$.Lon')       
-        --FROM OPENJSON (@json) 
-
-		SELECT @bLocationID as LocationID, Lat * 1000000 as Lat, Lon * 1000000 as Lon
-		into #tmp1
+		SELECT @Latitude = Lat * 1000000, @Longitude = Lon * 1000000		
 		FROM OPENJSON(@json) 
 		WITH (Lat decimal(19,6), Lon decimal(19,6))
 
-	--exec UpdatebLocationLatLong  @bLocationID, @Latitude, @Longitude, @UserName
+	exec UpdatebLocationLatLong  @bLocationID, @Latitude, @Longitude, @UserName
 
-		--select *
-		update l set Latitude= t.lat, Longitude = t.Lon
-		from #tmp1 t
-		--inner join bLocation l on l.bLocationID = t.LocationID
-		inner join ConversionScripts..bLocation l on l.bLocationID = t.LocationID
-
-    --WITH days AS (
-    --    SELECT
-    --        datetime AS DegreeDayDate,
-    --        @baseTemp - ROUND(temp, 0) AS DegreeDays
-    --    FROM OPENJSON (@json) WITH (
-    --        datetime date,
-    --        temp numeric(4, 1)
-    --    )
-    --)
-
-  
+		
