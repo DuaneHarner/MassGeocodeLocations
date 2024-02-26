@@ -57,10 +57,12 @@ AS
     );
 				
 
-		SELECT @Latitude = Lat * 1000000, @Longitude = Lon * 1000000		
-		FROM OPENJSON(@json) 
-		WITH (Lat decimal(19,6), Lon decimal(19,6))
+	SELECT @Latitude = Lat * 1000000, @Longitude = Lon * 1000000		
+	FROM OPENJSON(@json) 
+	WITH (Lat decimal(19,6), Lon decimal(19,6))
 
 	exec UpdatebLocationLatLong  @bLocationID, @Latitude, @Longitude, @UserName
 
 		
+
+  
