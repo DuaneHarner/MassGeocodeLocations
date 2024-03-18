@@ -1,0 +1,23 @@
+CREATE OR ALTER PROCEDURE DataConversion.GeocodeLocationsMissingLatLon
+    @bDivisionID int = null
+	,@UserName varchar(255)
+AS
+
+	select distinct l.*
+	into #geocode
+	from bLocation l
+	inner join bEquipment eq on eq.bLocationID = l.bLocationID
+	inner join bEntity_bLocation el on el.bLocationID = l.bLocationID
+	inner join bEntity e on e.bEntityID = el.bEntityID
+	where (l.Latitude is null or l.longitude is null)
+	   	  And (e.bDivisionID = @bDivisionID Or IsNull(@bDivisionID, 0) = 0)		  
+
+
+	declare @id int
+	set @id = (select top 1 bLocationID from #geocode order by bLocationID )
+	while @id is not null
+	begin
+					print @id
+					exec DataConversion.GeocodeLocations @id, @UserName
+					set @id = (select top 1 bLocationID from #geocode where bLocationID > @id order by bLocationID )
+	end
