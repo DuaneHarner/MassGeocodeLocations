@@ -1,10 +1,8 @@
-
-
 --select *
 --from bLocation
 --where Address1 = '31 Wright Rd' and city = 'Hollister' --429345
 
---exec DataConversion.GeocodeLocations 429345
+--exec DataConversion.GeocodeLocations 429345, Username
 
 
 CREATE OR ALTER PROCEDURE DataConversion.GeocodeLocations   
@@ -16,6 +14,7 @@ AS
 			,@Header nvarchar(100)
 			,@Latitude int
 			,@Longitude int
+			,@Errors varchar(200)
 
 	select @Address = 'street=' + Address1 + '&city=' + city + '&state=' + state + '&postcode=' + zipcode + '&country=US'
 	from bLocation
@@ -37,7 +36,8 @@ AS
 		'''',
         @url,     		
 		'''',      		        
-        ').Coords | ConvertTo-Json'        
+       --').Coords | ConvertTo-Json'        
+		') | ConvertTo-Json'        
 		,'"'          
     );
 
@@ -57,12 +57,28 @@ AS
     );
 				
 
-	SELECT @Latitude = Lat * 1000000, @Longitude = Lon * 1000000		
-	FROM OPENJSON(@json) 
-	WITH (Lat decimal(19,6), Lon decimal(19,6))
+	SELECT @Latitude = Lat * 1000000, @Longitude = Lon * 1000000, @Errors = Errors
+	FROM OPENJSON ( @json )  
+	WITH (   
+				  Lat  decimal(19,6)		'$.Coords.Lat',  
+				  Lon  decimal(19,6)		'$.Coords.Lon',
+				  Errors nvarchar(max) as json
+				  			  
+	 )
+
+	 set @Errors =  replace(replace(replace(substring(@Errors,CHARINDEX('Description',@Errors),200 ),'"',''),'[',''),']','')
+
+	-- select @bLocationID, @Latitude, @Longitude, @Errors
+
+	 if @Latitude is null or @Longitude is null
+	 begin 
+		print 'Lat and Lon did not update for Location ID ' + cast(@bLocationID as nvarchar(20)) + ' - ' + @Errors
+		select 'Lat and Lon did not update for Location ID ' + cast(@bLocationID as nvarchar(20)) + ' - ' + @Errors
+	 end
+
+	--SELECT @Latitude = Lat * 1000000, @Longitude = Lon * 1000000		
+	--FROM OPENJSON(@json) 
+	--WITH (Lat decimal(19,6), Lon decimal(19,6))
 
 	exec UpdatebLocationLatLong  @bLocationID, @Latitude, @Longitude, @UserName
 
-		
-
-  
